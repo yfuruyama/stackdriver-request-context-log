@@ -11,8 +11,8 @@ import (
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// appLogger := stackdriver.RequestContextLogger(r) // logrus.Logger
-		// appLogger.Infof("hello world")
+		appLogger := stackdriver.LoggerFromRequest(r) // logrus.Logger
+		appLogger.Infof("hello world")
 		fmt.Fprintf(w, "OK\n")
 	})
 

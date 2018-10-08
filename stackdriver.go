@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -11,15 +12,54 @@ import (
 )
 
 type Logger struct {
-	requestLogger *logrus.Logger
+	requestLogger *log.Logger
 	appLogger     *logrus.Logger
 	projectId     string
 	// Level: int
 }
 
+type AppLogFormatter struct {
+}
+
+type AppLog struct {
+	Time     string `json:"time"`
+	Trace    string `json:"logging.googleapis.com/trace"`
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+}
+
+func (f *AppLogFormatter) Format(e *logrus.Entry) ([]byte, error) {
+	// traceId := r.Context().Value("traceId").(string)
+	// trace := fmt.Sprintf("projects/%s/traces/%s", l.projectId, traceId)
+
+	t := e.Time
+	trace := e.Data["trace"].(string)
+	_ = e.Level // TODO
+	message := e.Message
+
+	// delete(e.Data, "trace")
+	// delete(e.Data, "time")
+	// delete(e.Data, "msg")
+	// delete(e.Data, "level")
+
+	appLog := &AppLog{
+		Time:     t.Format(time.RFC3339Nano),
+		Trace:    trace,
+		Severity: "INFO", // TODO
+		Message:  message,
+		// "logType":                      "app_log",
+	}
+
+	b, err := json.Marshal(appLog)
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
+}
+
 func NewLogger(outRequestLog io.Writer, outAppLog io.Writer, projectId string) *Logger {
-	requestLogger := logrus.New()
-	requestLogger.Out = outRequestLog
+	requestLogger := log.New(outRequestLog, "", 0)
+	// requestLogger.Out = outRequestLog
 	// requestLogger.Formatter = &logrus.JSONFormatter{
 	// DisableColors:    true,
 	// DisableTimestamp: true,
@@ -27,6 +67,7 @@ func NewLogger(outRequestLog io.Writer, outAppLog io.Writer, projectId string) *
 
 	appLogger := logrus.New()
 	appLogger.Out = outAppLog
+	appLogger.Formatter = &AppLogFormatter{}
 
 	return &Logger{
 		requestLogger: requestLogger,
@@ -99,5 +140,6 @@ func (l *Logger) WriteRequestLog(r *http.Request, status int, responseSize int, 
 	return nil
 }
 
-// func RequestContextLogger(r *http.Request) logrus.Logger {
-// }
+func LoggerFromRequest(r *http.Request) *logrus.Entry {
+	return r.Context().Value("contextLogger").(*logrus.Entry)
+}

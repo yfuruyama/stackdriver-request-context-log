@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -17,6 +18,11 @@ func Handler(logger *Logger, next http.Handler) http.Handler {
 
 		traceId := getTraceId(r)
 		ctx := context.WithValue(r.Context(), "traceId", traceId) // TODO
+
+		trace := fmt.Sprintf("projects/%s/traces/%s", logger.projectId, traceId)
+		contextLogger := logger.appLogger.WithField("trace", trace)
+		ctx = context.WithValue(ctx, "contextLogger", contextLogger) // TODO
+
 		r = r.WithContext(ctx)
 
 		defer func() {
