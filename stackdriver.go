@@ -22,10 +22,31 @@ type AppLogFormatter struct {
 }
 
 type AppLog struct {
-	Time     string `json:"time"`
-	Trace    string `json:"logging.googleapis.com/trace"`
-	Severity string `json:"severity"`
-	Message  string `json:"message"`
+	Time     string   `json:"time"`
+	Trace    string   `json:"logging.googleapis.com/trace"`
+	Severity Severity `json:"severity"`
+	Message  string   `json:"message"`
+}
+
+// https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
+type Severity string
+
+const (
+	SeverityDebug    Severity = "DEBUG"
+	SeverityInfo     Severity = "INFO"
+	SeverityWarning  Severity = "WARNING"
+	SeverityError    Severity = "ERROR"
+	SeverityCritical Severity = "CRITICAL"
+	SeverityAlert    Severity = "ALERT"
+)
+
+var levelToSeverityMap = map[logrus.Level]Severity{
+	logrus.DebugLevel: SeverityDebug,
+	logrus.InfoLevel:  SeverityInfo,
+	logrus.WarnLevel:  SeverityWarning,
+	logrus.ErrorLevel: SeverityError,
+	logrus.FatalLevel: SeverityCritical,
+	logrus.PanicLevel: SeverityAlert,
 }
 
 func (f *AppLogFormatter) Format(e *logrus.Entry) ([]byte, error) {
@@ -34,7 +55,11 @@ func (f *AppLogFormatter) Format(e *logrus.Entry) ([]byte, error) {
 
 	t := e.Time
 	trace := e.Data["trace"].(string)
-	_ = e.Level // TODO
+	severity, ok := levelToSeverityMap[e.Level]
+	if !ok {
+		// what happened
+		severity = SeverityInfo
+	}
 	message := e.Message
 
 	// delete(e.Data, "trace")
@@ -45,7 +70,7 @@ func (f *AppLogFormatter) Format(e *logrus.Entry) ([]byte, error) {
 	appLog := &AppLog{
 		Time:     t.Format(time.RFC3339Nano),
 		Trace:    trace,
-		Severity: "INFO", // TODO
+		Severity: severity,
 		Message:  message,
 		// "logType":                      "app_log",
 	}
