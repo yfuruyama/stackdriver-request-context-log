@@ -1,15 +1,24 @@
 package stackdriver
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"time"
+
+	"go.opencensus.io/exporter/stackdriver/propagation"
 )
 
 func Handler(logger *Logger, next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		before := time.Now()
 		wrw := &WrappedResponseWriter{ResponseWriter: w}
-		// TODO: get traceId
+
+		traceId := getTraceId(r)
+		ctx := context.WithValue(r.Context(), "traceId", traceId) // TODO
+		r = r.WithContext(ctx)
+
 		defer func() {
 			// logging
 			after := time.Since(before)
@@ -21,6 +30,17 @@ func Handler(logger *Logger, next http.Handler) http.Handler {
 		next.ServeHTTP(wrw, r)
 	}
 	return http.HandlerFunc(fn)
+}
+
+func getTraceId(r *http.Request) string {
+	httpFormat := &propagation.HTTPFormat{}
+	if sc, ok := httpFormat.SpanContextFromRequest(r); ok {
+		return sc.TraceID.String()
+	} else {
+		// TODO
+		uniqueBytes := sha256.Sum256([]byte(time.Now().Format(time.RFC3339Nano)))
+		return hex.EncodeToString(uniqueBytes[:16])
+	}
 }
 
 type WrappedResponseWriter struct {

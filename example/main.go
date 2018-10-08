@@ -16,7 +16,8 @@ func main() {
 		fmt.Fprintf(w, "OK\n")
 	})
 
-	logger := stackdriver.NewLogger(os.Stderr, os.Stdout)
+	projectId := "yfuruyama-sandbox"
+	logger := stackdriver.NewLogger(os.Stderr, os.Stdout, projectId)
 	handler := stackdriver.Handler(logger, mux)
 
 	if err := http.ListenAndServe(":8080", handler); err != nil {

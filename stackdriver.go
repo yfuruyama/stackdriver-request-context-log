@@ -1,8 +1,6 @@
 package stackdriver
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,10 +13,11 @@ import (
 type Logger struct {
 	requestLogger *logrus.Logger
 	appLogger     *logrus.Logger
+	projectId     string
 	// Level: int
 }
 
-func NewLogger(outRequestLog io.Writer, outAppLog io.Writer) *Logger {
+func NewLogger(outRequestLog io.Writer, outAppLog io.Writer, projectId string) *Logger {
 	requestLogger := logrus.New()
 	requestLogger.Out = outRequestLog
 	// requestLogger.Formatter = &logrus.JSONFormatter{
@@ -32,6 +31,7 @@ func NewLogger(outRequestLog io.Writer, outAppLog io.Writer) *Logger {
 	return &Logger{
 		requestLogger: requestLogger,
 		appLogger:     appLogger,
+		projectId:     projectId,
 	}
 }
 
@@ -62,13 +62,15 @@ type HttpRequestLog struct {
 }
 
 func (l *Logger) WriteRequestLog(r *http.Request, status int, responseSize int, elapsed time.Duration) error {
-	uniqueBytes := sha256.Sum256([]byte(time.Now().Format(time.RFC3339Nano)))
-	traceId := hex.EncodeToString(uniqueBytes[:])
+	traceId := r.Context().Value("traceId").(string)
+	trace := fmt.Sprintf("projects/%s/traces/%s", l.projectId, traceId)
+
 	latency := fmt.Sprintf("%fs", elapsed.Seconds())
+
 	requestLog := &HttpRequestLog{
 		Time:     time.Now().Format(time.RFC3339Nano),
-		Trace:    "projects/yfuruyama-sandbox/traces/" + traceId, // TODO
-		Severity: "INFO",                                         // TODO
+		Trace:    trace,
+		Severity: "INFO", // TODO
 		HttpRequest: &HttpRequest{
 			RequestMethod:                  r.Method,
 			RequestUrl:                     r.URL.Path,
