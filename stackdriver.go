@@ -21,6 +21,10 @@ type Logger struct {
 func NewLogger(outRequestLog io.Writer, outAppLog io.Writer) *Logger {
 	requestLogger := logrus.New()
 	requestLogger.Out = outRequestLog
+	// requestLogger.Formatter = &logrus.JSONFormatter{
+	// DisableColors:    true,
+	// DisableTimestamp: true,
+	// }
 
 	appLogger := logrus.New()
 	appLogger.Out = outAppLog
@@ -51,9 +55,9 @@ type HttpRequest struct {
 type HttpRequestLog struct {
 	Time string `json:"time"`
 	// Message string `json:"message"`
-	Trace       string      `json:"logging.googleapis.com/trace"`
-	Severity    string      `json:"severity"`
-	HttpRequest HttpRequest `json:"httpRequest"`
+	Trace       string       `json:"logging.googleapis.com/trace"`
+	Severity    string       `json:"severity"`
+	HttpRequest *HttpRequest `json:"httpRequest"`
 	// LogType string `json:"logType"`
 }
 
@@ -75,8 +79,8 @@ func (l *Logger) WriteRequestLog(r *http.Request, status int, responseSize int, 
 			RemoteIp:                       r.RemoteAddr,
 			ServerIp:                       "localhost",
 			Referer:                        r.Referer(),
-			Latency:                        "0.1s",
-			CacheLookup:                    false, // TODO
+			Latency:                        latency,
+			CacheLookUp:                    false, // TODO
 			CacheHit:                       false, // TODO
 			CacheValidatedWithOriginServer: false, // TODO
 			Protocol:                       r.Proto,
@@ -87,4 +91,11 @@ func (l *Logger) WriteRequestLog(r *http.Request, status int, responseSize int, 
 	if err != nil {
 		return err
 	}
+
+	l.requestLogger.Println(string(requestLogJson))
+
+	return nil
 }
+
+// func RequestContextLogger(r *http.Request) logrus.Logger {
+// }

@@ -9,6 +9,7 @@ func Handler(logger *Logger, next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		before := time.Now()
 		wrw := &WrappedResponseWriter{ResponseWriter: w}
+		// TODO: get traceId
 		defer func() {
 			// logging
 			after := time.Since(before)
