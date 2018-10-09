@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.opencensus.io/exporter/stackdriver/propagation"
+	"go.opencensus.io/trace"
 )
 
 // RequestLogging creates a middleware which logs a request log
@@ -21,12 +22,12 @@ func RequestLogging(config *Config) func(http.Handler) http.Handler {
 			before := time.Now()
 
 			traceId := getTraceId(r)
-			trace := fmt.Sprintf("projects/%s/traces/%s", config.projectId, traceId)
+			trace := fmt.Sprintf("projects/%s/traces/%s", config.ProjectId, traceId)
 
 			contextLogger := &ContextLogger{
-				logger:         config.contextLogger,
+				out:            config.ContextLogOut,
 				Trace:          trace,
-				Severity:       config.severity,
+				Severity:       config.Severity,
 				loggedSeverity: make([]Severity, 0, 10),
 			}
 			ctx := context.WithValue(r.Context(), contextLoggerKey, contextLogger)
@@ -49,6 +50,13 @@ func RequestLogging(config *Config) func(http.Handler) http.Handler {
 }
 
 func getTraceId(r *http.Request) string {
+	span := trace.FromContext(r.Context())
+	if span != nil {
+		return span.SpanContext().TraceID.String()
+	}
+
+	// there is no span yet, so create one
+
 	httpFormat := &propagation.HTTPFormat{}
 	if sc, ok := httpFormat.SpanContextFromRequest(r); ok {
 		return sc.TraceID.String()
@@ -102,17 +110,17 @@ func writeRequestLog(r *http.Request, config *Config, status int, responseSize i
 		},
 		"logType": "request_log",
 	}
-	for k, v := range config.additional {
+	for k, v := range config.AdditionalFields {
 		requestLog[k] = v
 	}
 	requestLogJson, err := json.Marshal(requestLog)
 	if err != nil {
 		return err
 	}
+	requestLogJson = append(requestLogJson, '\n')
 
-	config.requestLogger.Println(string(requestLogJson))
-
-	return nil
+	_, err = config.RequestLogOut.Write(requestLogJson)
+	return err
 }
 
 func getServerIp() string {

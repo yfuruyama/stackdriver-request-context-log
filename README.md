@@ -78,6 +78,5 @@ TODO
 
 * test
 * GoDoc
-* Add more example
 * interface redesign
 * traceId generation

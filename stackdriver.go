@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -12,52 +11,24 @@ import (
 
 type AdditionalFields map[string]interface{}
 
+// Config has configuration for `RequestLogging` function.
 type Config struct {
-	requestLogger *log.Logger
-	contextLogger *log.Logger
-	projectId     string
-	additional    AdditionalFields
-	severity      Severity
+	ProjectId        string
+	RequestLogOut    io.Writer
+	ContextLogOut    io.Writer
+	Severity         Severity
+	AdditionalFields AdditionalFields
 }
 
-type Option func(*Config)
-
-func WithSeverity(severity Severity) Option {
-	return func(c *Config) {
-		c.severity = severity
+// NewConfig creates a config with default settings.
+func NewConfig(projectId string) *Config {
+	return &Config{
+		ProjectId:        projectId,
+		Severity:         SeverityInfo,
+		RequestLogOut:    os.Stderr,
+		ContextLogOut:    os.Stdout,
+		AdditionalFields: AdditionalFields{},
 	}
-}
-
-func WithAdditionalFields(fields AdditionalFields) Option {
-	return func(c *Config) {
-		c.additional = fields
-	}
-}
-
-func WithRequestLogOut(out io.Writer) Option {
-	return func(c *Config) {
-		c.requestLogger = log.New(out, "", 0)
-	}
-}
-
-func WithContextLogOut(out io.Writer) Option {
-	return func(c *Config) {
-		c.contextLogger = log.New(out, "", 0)
-	}
-}
-
-// NewConfig creates a config which is passed to `Handler` function.
-func NewConfig(projectId string, options ...Option) *Config {
-	config := &Config{
-		projectId:     projectId,
-		severity:      SeverityInfo,
-		requestLogger: log.New(os.Stderr, "", 0),
-		contextLogger: log.New(os.Stdout, "", 0),
-	}
-	for _, option := range options {
-		option(config)
-	}
-	return config
 }
 
 // Severity is the level of log. More details:
@@ -103,20 +74,17 @@ func (s Severity) String() string {
 
 // ContextLogger is the logger which is combined with the request
 type ContextLogger struct {
-	logger         *log.Logger
+	out            io.Writer
 	Trace          string
 	Severity       Severity
 	loggedSeverity []Severity
 }
 
-// RequestContextLogger gets request-context logger for the request
+// RequestContextLogger gets request-context logger for the request.
+// You must use `RequestLogging` middleware in advance for this function to work.
 func RequestContextLogger(r *http.Request) *ContextLogger {
-	v := r.Context().Value(contextLoggerKey)
-	if l, ok := v.(*ContextLogger); ok {
-		return l
-	} else {
-		return nil
-	}
+	v, _ := r.Context().Value(contextLoggerKey).(*ContextLogger)
+	return v
 }
 
 // Default logs a message at DEFAULT severity
@@ -269,9 +237,9 @@ func (l *ContextLogger) Emergencyln(args ...interface{}) {
 	l.write(SeverityEmergency, fmt.Sprintln(args...))
 }
 
-func (l *ContextLogger) write(severity Severity, msg string) {
+func (l *ContextLogger) write(severity Severity, msg string) error {
 	if severity < l.Severity {
-		return
+		return nil
 	}
 
 	l.loggedSeverity = append(l.loggedSeverity, severity)
@@ -283,12 +251,15 @@ func (l *ContextLogger) write(severity Severity, msg string) {
 		"message":                      msg,
 		"logType":                      "context_log",
 	}
-	b, err := json.Marshal(contextLog)
+
+	contextLogJson, err := json.Marshal(contextLog)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
+	contextLogJson = append(contextLogJson, '\n')
 
-	l.logger.Println(string(b))
+	_, err = l.out.Write(contextLogJson)
+	return err
 }
 
 func (l *ContextLogger) maxSeverity() Severity {

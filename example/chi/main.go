@@ -13,15 +13,15 @@ func main() {
 	router := chi.NewRouter()
 
 	projectId := "my-gcp-project"
-	config := log.NewConfig(projectId,
-		log.WithRequestLogOut(os.Stderr),   // set output for request log
-		log.WithContextLogOut(os.Stdout),   // set output for context log
-		log.WithSeverity(log.SeverityInfo), // set severity
-		log.WithAdditionalFields(log.AdditionalFields{ // set additional fields for request logging
-			"service": "foo",
-			"version": 1.0,
-		}),
-	)
+	config := log.NewConfig(projectId)
+	config.RequestLogOut = os.Stderr                // set output for request log
+	config.ContextLogOut = os.Stdout                // set output for context log
+	config.Severity = log.SeverityInfo              // set severity
+	config.AdditionalFields = log.AdditionalFields{ // set additional fields for request logging
+		"service": "foo",
+		"version": 1.0,
+	}
+
 	router.Use(log.RequestLogging(config))
 
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
