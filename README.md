@@ -5,7 +5,7 @@ Stackdriver Logging Go library for grouping a request log and application logs.
 
 With this library, a request log is automatically logged and every application logs within the request are grouped together (similtar to App Engine).
 
-<img alt="screenshot" src="https://github.com/yfuruyama/stackdriver-request-context-log/blob/master/img/screenshot.png" width="700">
+<img alt="screenshot" src="https://github.com/yfuruyama/stackdriver-request-context-log/blob/master/img/screenshot.png">
 
 Note that the interface of this library is still **ALPHA** level quality.  
 Breaking changes will be introduced frequently.
@@ -107,11 +107,14 @@ When this application receives a HTTP request `GET /`, following logs will be lo
 }
 ```
 
-The log format is based on [LogEntry](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry)'s jsonPayload so that you can pass these logs to [Stackdriver Logging agent](https://cloud.google.com/logging/docs/agent/).
+The log format is based on [LogEntry](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry)'s structured payload so that you can pass these logs to [Stackdriver Logging agent](https://cloud.google.com/logging/docs/agent/).  
 
-## TODO
+Some of fields are treated specially at logging agent. See more details: https://cloud.google.com/logging/docs/agent/configuration?hl=en#special_fields_in_structured_payloads
 
-* test
-* GoDoc
-* interface redesign
-* traceId generation
+## How logs are grouped
+
+This library leverages the grouping feature of Stackdriver Logging.
+See following references fore more details. 
+
+* https://godoc.org/cloud.google.com/go/logging#hdr-Grouping_Logs_by_Request
+* https://cloud.google.com/appengine/articles/logging#linking_app_logs_and_requests
