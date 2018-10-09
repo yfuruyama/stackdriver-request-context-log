@@ -14,35 +14,38 @@ import (
 	"go.opencensus.io/exporter/stackdriver/propagation"
 )
 
-func Handler(config *Config, next http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		before := time.Now()
+// RequestLogging creates a middleware which logs a request log
+func RequestLogging(config *Config) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			before := time.Now()
 
-		traceId := getTraceId(r)
-		trace := fmt.Sprintf("projects/%s/traces/%s", config.projectId, traceId)
+			traceId := getTraceId(r)
+			trace := fmt.Sprintf("projects/%s/traces/%s", config.projectId, traceId)
 
-		contextLogger := &ContextLogger{
-			logger:         config.contextLogger,
-			Trace:          trace,
-			Severity:       config.severity,
-			loggedSeverity: make([]Severity, 0, 10),
-		}
-		ctx := context.WithValue(r.Context(), contextLoggerKey, contextLogger)
-		r = r.WithContext(ctx)
-
-		wrw := &WrappedResponseWriter{ResponseWriter: w}
-		defer func() {
-			// logging
-			elapsed := time.Since(before)
-			maxSeverity := contextLogger.maxSeverity()
-			err := writeRequestLog(r, config, wrw.status, wrw.responseSize, elapsed, trace, maxSeverity)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err.Error())
+			contextLogger := &ContextLogger{
+				logger:         config.contextLogger,
+				Trace:          trace,
+				Severity:       config.severity,
+				loggedSeverity: make([]Severity, 0, 10),
 			}
-		}()
-		next.ServeHTTP(wrw, r)
+			ctx := context.WithValue(r.Context(), contextLoggerKey, contextLogger)
+			r = r.WithContext(ctx)
+
+			wrw := &wrappedResponseWriter{ResponseWriter: w}
+			defer func() {
+				// logging
+				elapsed := time.Since(before)
+				maxSeverity := contextLogger.maxSeverity()
+				err := writeRequestLog(r, config, wrw.status, wrw.responseSize, elapsed, trace, maxSeverity)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err.Error())
+				}
+			}()
+			next.ServeHTTP(wrw, r)
+		}
+		return http.HandlerFunc(fn)
 	}
-	return http.HandlerFunc(fn)
 }
 
 func getTraceId(r *http.Request) string {
@@ -56,18 +59,18 @@ func getTraceId(r *http.Request) string {
 	}
 }
 
-type WrappedResponseWriter struct {
+type wrappedResponseWriter struct {
 	http.ResponseWriter
 	status       int
 	responseSize int
 }
 
-func (w *WrappedResponseWriter) WriteHeader(status int) {
+func (w *wrappedResponseWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
 }
 
-func (w *WrappedResponseWriter) Write(b []byte) (int, error) {
+func (w *wrappedResponseWriter) Write(b []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}

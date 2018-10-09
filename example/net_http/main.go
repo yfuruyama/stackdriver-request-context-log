@@ -16,10 +16,7 @@ func main() {
 		logger := stackdriver.RequestContextLogger(r)
 		logger.Debugf("This is a debug log")
 		logger.Infof("This is an info log")
-		logger.Warnf("This is a warning log")
 		logger.Errorf("This is an error log")
-		logger.Alertf("This is an alert log")
-		logger.Emergency("This is an emergency log")
 		fmt.Fprintf(w, "OK\n")
 	})
 
@@ -33,8 +30,9 @@ func main() {
 			"version": 1.0,
 		}),
 	)
-	handler := stackdriver.Handler(config, mux)
+	handler := stackdriver.RequestLogging(config)(mux)
 
+	fmt.Println("Waiting a request on port 8080...")
 	if err := http.ListenAndServe(":8080", handler); err != nil {
 		panic(err)
 	}
