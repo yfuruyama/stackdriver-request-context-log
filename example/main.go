@@ -25,7 +25,8 @@ func main() {
 
 	projectId, _ := getDefaultProjectId()
 	config := stackdriver.NewConfig(projectId,
-		stackdriver.WithOut(os.Stderr, os.Stdout),
+		stackdriver.WithRequestLogOut(os.Stderr),
+		stackdriver.WithContextLogOut(os.Stdout),
 		stackdriver.WithSeverity(stackdriver.SeverityInfo),
 		stackdriver.WithAdditionalFields(stackdriver.AdditionalFields{
 			"service": "foo",

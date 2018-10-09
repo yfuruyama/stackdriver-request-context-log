@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"go.opencensus.io/exporter/stackdriver/propagation"
@@ -16,9 +17,9 @@ import (
 func Handler(config *Config, next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		before := time.Now()
-		wrw := &WrappedResponseWriter{ResponseWriter: w}
 
-		trace := fmt.Sprintf("projects/%s/traces/%s", config.projectId, getTraceId(r))
+		traceId := getTraceId(r)
+		trace := fmt.Sprintf("projects/%s/traces/%s", config.projectId, traceId)
 
 		contextLogger := &ContextLogger{
 			logger:         config.contextLogger,
@@ -27,16 +28,16 @@ func Handler(config *Config, next http.Handler) http.Handler {
 			loggedSeverity: make([]Severity, 0, 10),
 		}
 		ctx := context.WithValue(r.Context(), contextLoggerKey, contextLogger)
-
 		r = r.WithContext(ctx)
 
+		wrw := &WrappedResponseWriter{ResponseWriter: w}
 		defer func() {
 			// logging
-			after := time.Since(before)
+			elapsed := time.Since(before)
 			maxSeverity := contextLogger.maxSeverity()
-			err := writeRequestLog(r, config, wrw.status, wrw.responseSize, after, trace, maxSeverity)
+			err := writeRequestLog(r, config, wrw.status, wrw.responseSize, elapsed, trace, maxSeverity)
 			if err != nil {
-				panic(err)
+				fmt.Fprintln(os.Stderr, err.Error())
 			}
 		}()
 		next.ServeHTTP(wrw, r)
@@ -76,8 +77,6 @@ func (w *WrappedResponseWriter) Write(b []byte) (int, error) {
 }
 
 func writeRequestLog(r *http.Request, config *Config, status int, responseSize int, elapsed time.Duration, trace string, severity Severity) error {
-	latency := fmt.Sprintf("%fs", elapsed.Seconds())
-
 	requestLog := map[string]interface{}{
 		"time": time.Now().Format(time.RFC3339Nano),
 		"logging.googleapis.com/trace": trace,
@@ -92,7 +91,7 @@ func writeRequestLog(r *http.Request, config *Config, status int, responseSize i
 			"remoteIp":                       r.RemoteAddr,
 			"serverIp":                       getServerIp(),
 			"referer":                        r.Referer(),
-			"latency":                        latency,
+			"latency":                        fmt.Sprintf("%fs", elapsed.Seconds()),
 			"cacheLookUp":                    false,
 			"cacheHit":                       false,
 			"cacheValidatedWithOriginServer": false,
