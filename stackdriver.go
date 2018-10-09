@@ -16,10 +16,10 @@ type Logger struct {
 	appLogger     *log.Logger
 	projectId     string
 	additional    AdditionalFields
-	// Level: int
+	severity      Severity
 }
 
-func NewLogger(outRequestLog io.Writer, outAppLog io.Writer, projectId string, additional AdditionalFields) *Logger {
+func NewLogger(outRequestLog io.Writer, outAppLog io.Writer, projectId string, severity Severity, additional AdditionalFields) *Logger {
 	requestLogger := log.New(outRequestLog, "", 0)
 	appLogger := log.New(outAppLog, "", 0)
 
@@ -28,13 +28,11 @@ func NewLogger(outRequestLog io.Writer, outAppLog io.Writer, projectId string, a
 		appLogger:     appLogger,
 		projectId:     projectId,
 		additional:    additional,
+		severity:      severity,
 	}
 }
 
-func (l *Logger) WriteRequestLog(r *http.Request, status int, responseSize int, elapsed time.Duration, severity Severity) error {
-	traceId := r.Context().Value("traceId").(string)
-	trace := fmt.Sprintf("projects/%s/traces/%s", l.projectId, traceId)
-
+func (l *Logger) WriteRequestLog(r *http.Request, status int, responseSize int, elapsed time.Duration, trace string, severity Severity) error {
 	latency := fmt.Sprintf("%fs", elapsed.Seconds())
 
 	requestLog := map[string]interface{}{
@@ -122,12 +120,124 @@ func LoggerFromRequest(r *http.Request) *AppLogger {
 	return r.Context().Value("appLogger").(*AppLogger)
 }
 
+func (a *AppLogger) Default(args ...interface{}) {
+	a.log(SeverityDefault, fmt.Sprint(args...))
+}
+
+func (a *AppLogger) Defaultf(format string, args ...interface{}) {
+	a.log(SeverityDefault, fmt.Sprintf(format, args...))
+}
+
+func (a *AppLogger) Defaultln(args ...interface{}) {
+	a.log(SeverityDefault, fmt.Sprintln(args...))
+}
+
+func (a *AppLogger) Debug(args ...interface{}) {
+	a.log(SeverityDebug, fmt.Sprint(args...))
+}
+
+func (a *AppLogger) Debugf(format string, args ...interface{}) {
+	a.log(SeverityDebug, fmt.Sprintf(format, args...))
+}
+
+func (a *AppLogger) Debugln(args ...interface{}) {
+	a.log(SeverityDebug, fmt.Sprintln(args...))
+}
+
+func (a *AppLogger) Info(args ...interface{}) {
+	a.log(SeverityInfo, fmt.Sprint(args...))
+}
+
 func (a *AppLogger) Infof(format string, args ...interface{}) {
 	a.log(SeverityInfo, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Warnf(format string, args ...interface{}) {
+func (a *AppLogger) Infoln(args ...interface{}) {
+	a.log(SeverityInfo, fmt.Sprintln(args...))
+}
+
+func (a *AppLogger) Notice(args ...interface{}) {
+	a.log(SeverityNotice, fmt.Sprint(args...))
+}
+
+func (a *AppLogger) Noticef(format string, args ...interface{}) {
+	a.log(SeverityNotice, fmt.Sprintf(format, args...))
+}
+
+func (a *AppLogger) Noticeln(args ...interface{}) {
+	a.log(SeverityNotice, fmt.Sprintln(args...))
+}
+
+func (a *AppLogger) Warning(args ...interface{}) {
+	a.log(SeverityWarning, fmt.Sprint(args...))
+}
+
+func (a *AppLogger) Warningf(format string, args ...interface{}) {
 	a.log(SeverityWarning, fmt.Sprintf(format, args...))
+}
+
+func (a *AppLogger) Warningln(args ...interface{}) {
+	a.log(SeverityWarning, fmt.Sprintln(args...))
+}
+
+func (a *AppLogger) Warn(args ...interface{}) {
+	a.Warning(args...)
+}
+
+func (a *AppLogger) Warnf(format string, args ...interface{}) {
+	a.Warningf(format, args...)
+}
+
+func (a *AppLogger) Warnln(args ...interface{}) {
+	a.Warningln(args...)
+}
+
+func (a *AppLogger) Error(args ...interface{}) {
+	a.log(SeverityError, fmt.Sprint(args...))
+}
+
+func (a *AppLogger) Errorf(format string, args ...interface{}) {
+	a.log(SeverityError, fmt.Sprintf(format, args...))
+}
+
+func (a *AppLogger) Errorln(args ...interface{}) {
+	a.log(SeverityError, fmt.Sprintln(args...))
+}
+
+func (a *AppLogger) Critical(args ...interface{}) {
+	a.log(SeverityCritical, fmt.Sprint(args...))
+}
+
+func (a *AppLogger) Criticalf(format string, args ...interface{}) {
+	a.log(SeverityCritical, fmt.Sprintf(format, args...))
+}
+
+func (a *AppLogger) Criticalln(args ...interface{}) {
+	a.log(SeverityCritical, fmt.Sprintln(args...))
+}
+
+func (a *AppLogger) Alert(args ...interface{}) {
+	a.log(SeverityAlert, fmt.Sprint(args...))
+}
+
+func (a *AppLogger) Alertf(format string, args ...interface{}) {
+	a.log(SeverityAlert, fmt.Sprintf(format, args...))
+}
+
+func (a *AppLogger) Alertln(args ...interface{}) {
+	a.log(SeverityAlert, fmt.Sprintln(args...))
+}
+
+func (a *AppLogger) Emergency(args ...interface{}) {
+	a.log(SeverityEmergency, fmt.Sprint(args...))
+}
+
+func (a *AppLogger) Emergencyf(format string, args ...interface{}) {
+	a.log(SeverityEmergency, fmt.Sprintf(format, args...))
+}
+
+func (a *AppLogger) Emergencyln(args ...interface{}) {
+	a.log(SeverityEmergency, fmt.Sprintln(args...))
 }
 
 func (a *AppLogger) log(severity Severity, msg string) {

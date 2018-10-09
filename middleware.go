@@ -16,18 +16,15 @@ func Handler(logger *Logger, next http.Handler) http.Handler {
 		before := time.Now()
 		wrw := &WrappedResponseWriter{ResponseWriter: w}
 
-		traceId := getTraceId(r)
-		ctx := context.WithValue(r.Context(), "traceId", traceId) // TODO
-
-		trace := fmt.Sprintf("projects/%s/traces/%s", logger.projectId, traceId)
+		trace := fmt.Sprintf("projects/%s/traces/%s", logger.projectId, getTraceId(r))
 
 		appLogger := &AppLogger{
 			logger:         logger.appLogger,
 			Trace:          trace,
-			Severity:       SeverityInfo, // TODO
+			Severity:       logger.severity,
 			loggedSeverity: make([]Severity, 0, 10),
 		}
-		ctx = context.WithValue(ctx, "appLogger", appLogger) // TODO
+		ctx := context.WithValue(r.Context(), "appLogger", appLogger) // TODO
 
 		r = r.WithContext(ctx)
 
@@ -35,7 +32,7 @@ func Handler(logger *Logger, next http.Handler) http.Handler {
 			// logging
 			after := time.Since(before)
 			maxSeverity := appLogger.maxSeverity()
-			err := logger.WriteRequestLog(r, wrw.status, wrw.responseSize, after, maxSeverity)
+			err := logger.WriteRequestLog(r, wrw.status, wrw.responseSize, after, trace, maxSeverity)
 			if err != nil {
 				panic(err)
 			}
