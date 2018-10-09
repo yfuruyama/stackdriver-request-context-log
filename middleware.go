@@ -24,7 +24,7 @@ func Handler(logger *Logger, next http.Handler) http.Handler {
 			Severity:       logger.severity,
 			loggedSeverity: make([]Severity, 0, 10),
 		}
-		ctx := context.WithValue(r.Context(), "appLogger", appLogger) // TODO
+		ctx := context.WithValue(r.Context(), appLoggerKey, appLogger)
 
 		r = r.WithContext(ctx)
 

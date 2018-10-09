@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -19,17 +20,38 @@ type Logger struct {
 	severity      Severity
 }
 
-func NewLogger(outRequestLog io.Writer, outAppLog io.Writer, projectId string, severity Severity, additional AdditionalFields) *Logger {
-	requestLogger := log.New(outRequestLog, "", 0)
-	appLogger := log.New(outAppLog, "", 0)
+type Option func(*Logger)
 
-	return &Logger{
-		requestLogger: requestLogger,
-		appLogger:     appLogger,
-		projectId:     projectId,
-		additional:    additional,
-		severity:      severity,
+func WithSeverity(severity Severity) Option {
+	return func(l *Logger) {
+		l.severity = severity
 	}
+}
+
+func WithAdditionalFields(fields AdditionalFields) Option {
+	return func(l *Logger) {
+		l.additional = fields
+	}
+}
+
+func WithOut(outRequestLog io.Writer, outAppLog io.Writer) Option {
+	return func(l *Logger) {
+		l.requestLogger = log.New(outRequestLog, "", 0)
+		l.appLogger = log.New(outAppLog, "", 0)
+	}
+}
+
+func NewLogger(projectId string, options ...Option) *Logger {
+	logger := &Logger{
+		projectId:     projectId,
+		severity:      SeverityInfo,
+		requestLogger: log.New(os.Stderr, "", 0),
+		appLogger:     log.New(os.Stdout, "", 0),
+	}
+	for _, option := range options {
+		option(logger)
+	}
+	return logger
 }
 
 func (l *Logger) WriteRequestLog(r *http.Request, status int, responseSize int, elapsed time.Duration, trace string, severity Severity) error {
@@ -55,7 +77,7 @@ func (l *Logger) WriteRequestLog(r *http.Request, status int, responseSize int, 
 			"cacheValidatedWithOriginServer": false, // TODO
 			"protocol":                       r.Proto,
 		},
-		// "logType": "request_log",
+		"logType": "request_log",
 	}
 	for k, v := range l.additional {
 		requestLog[k] = v
@@ -117,7 +139,7 @@ type AppLogger struct {
 }
 
 func LoggerFromRequest(r *http.Request) *AppLogger {
-	return r.Context().Value("appLogger").(*AppLogger)
+	return r.Context().Value(appLoggerKey).(*AppLogger)
 }
 
 func (a *AppLogger) Default(args ...interface{}) {
@@ -252,11 +274,11 @@ func (a *AppLogger) log(severity Severity, msg string) {
 		"logging.googleapis.com/trace": a.Trace,
 		"severity":                     severity.String(),
 		"message":                      msg,
-		// "logType":                      "app_log",
+		"logType":                      "app_log",
 	}
 	b, err := json.Marshal(appLog)
 	if err != nil {
-		panic(err) // TODO
+		fmt.Fprintln(os.Stderr, err.Error())
 	}
 
 	a.logger.Println(string(b))

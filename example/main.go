@@ -22,10 +22,14 @@ func main() {
 	})
 
 	projectId, _ := getDefaultProjectId()
-	logger := stackdriver.NewLogger(os.Stderr, os.Stdout, projectId, stackdriver.SeverityInfo, stackdriver.AdditionalFields{
-		"service": "foo",
-		"version": 1.0,
-	})
+	logger := stackdriver.NewLogger(projectId,
+		stackdriver.WithOut(os.Stderr, os.Stdout),
+		stackdriver.WithSeverity(stackdriver.SeverityInfo),
+		stackdriver.WithAdditionalFields(stackdriver.AdditionalFields{
+			"service": "foo",
+			"version": 1.0,
+		}),
+	)
 	handler := stackdriver.Handler(logger, mux)
 
 	if err := http.ListenAndServe(":8080", handler); err != nil {
