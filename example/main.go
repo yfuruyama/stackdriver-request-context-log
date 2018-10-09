@@ -18,6 +18,8 @@ func main() {
 		logger.Infof("This is an info log")
 		logger.Warnf("This is a warning log")
 		logger.Errorf("This is an error log")
+		logger.Alertf("This is an alert log")
+		logger.Emergency("This is an emergency log")
 		fmt.Fprintf(w, "OK\n")
 	})
 

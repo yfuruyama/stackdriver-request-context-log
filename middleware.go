@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -83,18 +84,18 @@ func writeRequestLog(r *http.Request, config *Config, status int, responseSize i
 		"severity":                     severity.String(),
 		"httpRequest": map[string]interface{}{
 			"requestMethod":                  r.Method,
-			"requestUrl":                     r.URL.Path,
+			"requestUrl":                     r.URL.RequestURI(),
 			"requestSize":                    fmt.Sprintf("%d", r.ContentLength),
 			"status":                         status,
 			"responseSize":                   fmt.Sprintf("%d", responseSize),
 			"userAgent":                      r.UserAgent(),
 			"remoteIp":                       r.RemoteAddr,
-			"serverIp":                       "localhost",
+			"serverIp":                       getServerIp(),
 			"referer":                        r.Referer(),
 			"latency":                        latency,
-			"cacheLookUp":                    false, // TODO
-			"cacheHit":                       false, // TODO
-			"cacheValidatedWithOriginServer": false, // TODO
+			"cacheLookUp":                    false,
+			"cacheHit":                       false,
+			"cacheValidatedWithOriginServer": false,
 			"protocol":                       r.Proto,
 		},
 		"logType": "request_log",
@@ -110,4 +111,25 @@ func writeRequestLog(r *http.Request, config *Config, status int, responseSize i
 	config.requestLogger.Println(string(requestLogJson))
 
 	return nil
+}
+
+func getServerIp() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			return ""
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					return ipnet.IP.String()
+				}
+			}
+		}
+	}
+	return ""
 }
