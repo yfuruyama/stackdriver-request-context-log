@@ -20,15 +20,22 @@ func Handler(logger *Logger, next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), "traceId", traceId) // TODO
 
 		trace := fmt.Sprintf("projects/%s/traces/%s", logger.projectId, traceId)
-		contextLogger := logger.appLogger.WithField("trace", trace)
-		ctx = context.WithValue(ctx, "contextLogger", contextLogger) // TODO
+
+		appLogger := &AppLogger{
+			logger:         logger.appLogger,
+			Trace:          trace,
+			Severity:       SeverityInfo, // TODO
+			loggedSeverity: make([]Severity, 0, 10),
+		}
+		ctx = context.WithValue(ctx, "appLogger", appLogger) // TODO
 
 		r = r.WithContext(ctx)
 
 		defer func() {
 			// logging
 			after := time.Since(before)
-			err := logger.WriteRequestLog(r, wrw.status, wrw.responseSize, after)
+			maxSeverity := appLogger.maxSeverity()
+			err := logger.WriteRequestLog(r, wrw.status, wrw.responseSize, after, maxSeverity)
 			if err != nil {
 				panic(err)
 			}
