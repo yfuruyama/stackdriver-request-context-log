@@ -26,10 +26,10 @@ func main() {
 
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		logger := log.RequestContextLogger(r)
-
 		logger.Debugf("Hi")
 		logger.Infof("Hello")
 		logger.Warnf("World")
+
 		fmt.Fprintf(w, "OK\n")
 	})
 

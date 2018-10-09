@@ -3,20 +3,20 @@ stackdriver-request-context-log
 
 Stackdriver Logging Go library for grouping a request log and application logs.
 
-With this library, a request log is automatically logged and each application logs within the request are grouped each together, like App Engine logs.
+With this library, a request log is automatically logged and every application logs within the request are grouped together (similtar to App Engine).
 
-[put image here]
+<img alt="screenshot" src="https://github.com/yfuruyama/stackdriver-request-context-log/blob/master/img/screenshot.png" width="700">
 
-Note that this library's interface is **ALPHA** level quality.  
+Note that the interface of this library is still **ALPHA** level quality.  
 Breaking changes will be introduced frequently.
 
-# Install
+## Install
 
 ```
 go get -u github.com/yfuruyama/stackdriver-request-context-log
 ```
 
-# Example
+## Example
 
 This simple example shows how to integrate this library into your web application.
 
@@ -43,38 +43,73 @@ func main() {
 	})
 
 	projectId := "my-gcp-project"
-	config := log.NewConfig(projectId,
-		log.WithRequestLogOut(os.Stderr),   // set output for request log
-		log.WithContextLogOut(os.Stdout),   // set output for context log
-		log.WithSeverity(log.SeverityInfo), // set severity
-		log.WithAdditionalFields(log.AdditionalFields{ // set additional fields for request logging
-			"service": "foo",
-			"version": 1.0,
-		}),
-	)
+	config := log.NewConfig(projectId)
+	config.RequestLogOut = os.Stderr                // set output for request log
+	config.ContextLogOut = os.Stdout                // set output for context log
+	config.Severity = log.SeverityInfo              // set severity
+	config.AdditionalFields = log.AdditionalFields{ // set additional fields for request logging
+		"service": "foo",
+		"version": 1.0,
+	}
+
 	handler := log.RequestLogging(config)(mux)
 
-	fmt.Println("Waiting requests on port 8080...")
-	if err := http.ListenAndServe(":8080", handler); err != nil {
+	fmt.Println("Waiting requests on port 8010...")
+	if err := http.ListenAndServe(":8010", handler); err != nil {
 		panic(err)
 	}
 }
 ```
 
-When this programs receives HTTP request "GET /", logging library outputs following logs which conforms Stackdriver Logging format.  
-You can pass these logs to gcp-fluentd to send them to Stackdriver Logging.
+When this application receives a HTTP request `GET /`, following logs will be logged (with pretty print for display purposes only).
 
 ```json
 // STDOUT
-{"logType":"context_log","logging.googleapis.com/trace":"projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439","message":"Hello","severity":"INFO","time":"2018-10-09T18:21:43.629731+09:00"}
-{"logType":"context_log","logging.googleapis.com/trace":"projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439","message":"World","severity":"WARNING","time":"2018-10-09T18:21:43.63184+09:00"}
+{
+  "logType": "context_log",
+  "logging.googleapis.com/trace": "projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439",
+  "message": "Hello",
+  "severity": "INFO",
+  "time": "2018-10-09T18:21:43.629731+09:00"
+}
+{
+  "logType": "context_log",
+  "logging.googleapis.com/trace": "projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439",
+  "message": "World",
+  "severity": "WARNING",
+  "time": "2018-10-09T18:21:43.63184+09:00"
+}
 
 // STDERR
-{"httpRequest":{"cacheHit":false,"cacheLookUp":false,"cacheValidatedWithOriginServer":false,"latency":"0.007073s","protocol":"HTTP/1.1","referer":"","remoteIp":"[::1]:61502","requestMethod":"GET","requestSize":"0","requestUrl":"/","responseSize":"3","serverIp":"","status":200,"userAgent":"curl/7.58.0"},"logType":"request_log","logging.googleapis.com/trace":"projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439","service":"foo","severity":"WARNING","time":"2018-10-09T18:21:43.632127+09:00","version":1}
+{
+  "httpRequest": {
+    "cacheHit": false,
+    "cacheLookUp": false,
+    "cacheValidatedWithOriginServer": false,
+    "latency": "0.007073s",
+    "protocol": "HTTP/1.1",
+    "referer": "",
+    "remoteIp": "[::1]:61502",
+    "requestMethod": "GET",
+    "requestSize": "0",
+    "requestUrl": "/",
+    "responseSize": "3",
+    "serverIp": "",
+    "status": 200,
+    "userAgent": "curl/7.58.0"
+  },
+  "logType": "request_log",
+  "logging.googleapis.com/trace": "projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439",
+  "service": "foo",
+  "severity": "WARNING",
+  "time": "2018-10-09T18:21:43.632127+09:00",
+  "version": 1
+}
 ```
 
-TODO
-===
+The log format is based on [LogEntry](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry)'s jsonPayload so that you can pass these logs to [Stackdriver Logging agent](https://cloud.google.com/logging/docs/agent/).
+
+## TODO
 
 * test
 * GoDoc
