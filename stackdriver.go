@@ -12,84 +12,46 @@ import (
 
 type AdditionalFields map[string]interface{}
 
-type Logger struct {
+type Config struct {
 	requestLogger *log.Logger
-	appLogger     *log.Logger
+	contextLogger *log.Logger
 	projectId     string
 	additional    AdditionalFields
 	severity      Severity
 }
 
-type Option func(*Logger)
+type Option func(*Config)
 
 func WithSeverity(severity Severity) Option {
-	return func(l *Logger) {
-		l.severity = severity
+	return func(c *Config) {
+		c.severity = severity
 	}
 }
 
 func WithAdditionalFields(fields AdditionalFields) Option {
-	return func(l *Logger) {
-		l.additional = fields
+	return func(c *Config) {
+		c.additional = fields
 	}
 }
 
-func WithOut(outRequestLog io.Writer, outAppLog io.Writer) Option {
-	return func(l *Logger) {
-		l.requestLogger = log.New(outRequestLog, "", 0)
-		l.appLogger = log.New(outAppLog, "", 0)
+func WithOut(outRequestLog io.Writer, outContextLog io.Writer) Option {
+	return func(c *Config) {
+		c.requestLogger = log.New(outRequestLog, "", 0)
+		c.contextLogger = log.New(outContextLog, "", 0)
 	}
 }
 
-func NewLogger(projectId string, options ...Option) *Logger {
-	logger := &Logger{
+func NewConfig(projectId string, options ...Option) *Config {
+	config := &Config{
 		projectId:     projectId,
 		severity:      SeverityInfo,
 		requestLogger: log.New(os.Stderr, "", 0),
-		appLogger:     log.New(os.Stdout, "", 0),
+		contextLogger: log.New(os.Stdout, "", 0),
 	}
 	for _, option := range options {
-		option(logger)
+		option(config)
 	}
-	return logger
-}
-
-func (l *Logger) WriteRequestLog(r *http.Request, status int, responseSize int, elapsed time.Duration, trace string, severity Severity) error {
-	latency := fmt.Sprintf("%fs", elapsed.Seconds())
-
-	requestLog := map[string]interface{}{
-		"time": time.Now().Format(time.RFC3339Nano),
-		"logging.googleapis.com/trace": trace,
-		"severity":                     severity.String(),
-		"httpRequest": map[string]interface{}{
-			"requestMethod":                  r.Method,
-			"requestUrl":                     r.URL.Path,
-			"requestSize":                    fmt.Sprintf("%d", r.ContentLength),
-			"status":                         status,
-			"responseSize":                   fmt.Sprintf("%d", responseSize),
-			"userAgent":                      r.UserAgent(),
-			"remoteIp":                       r.RemoteAddr,
-			"serverIp":                       "localhost",
-			"referer":                        r.Referer(),
-			"latency":                        latency,
-			"cacheLookUp":                    false, // TODO
-			"cacheHit":                       false, // TODO
-			"cacheValidatedWithOriginServer": false, // TODO
-			"protocol":                       r.Proto,
-		},
-		"logType": "request_log",
-	}
-	for k, v := range l.additional {
-		requestLog[k] = v
-	}
-	requestLogJson, err := json.Marshal(requestLog)
-	if err != nil {
-		return err
-	}
-
-	l.requestLogger.Println(string(requestLogJson))
-
-	return nil
+	return config
 }
 
 // https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
@@ -131,170 +93,170 @@ func (s Severity) String() string {
 	return "UNKNOWN"
 }
 
-type AppLogger struct {
+type ContextLogger struct {
 	logger         *log.Logger
 	Trace          string
 	Severity       Severity
 	loggedSeverity []Severity
 }
 
-func LoggerFromRequest(r *http.Request) *AppLogger {
-	return r.Context().Value(appLoggerKey).(*AppLogger)
+func RequestContextLogger(r *http.Request) *ContextLogger {
+	v := r.Context().Value(contextLoggerKey)
+	if l, ok := v.(*ContextLogger); ok {
+		return l
+	} else {
+		return nil
+	}
 }
 
-func (a *AppLogger) Default(args ...interface{}) {
-	a.log(SeverityDefault, fmt.Sprint(args...))
+func (l *ContextLogger) Default(args ...interface{}) {
+	l.log(SeverityDefault, fmt.Sprint(args...))
 }
 
-func (a *AppLogger) Defaultf(format string, args ...interface{}) {
-	a.log(SeverityDefault, fmt.Sprintf(format, args...))
+func (l *ContextLogger) Defaultf(format string, args ...interface{}) {
+	l.log(SeverityDefault, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Defaultln(args ...interface{}) {
-	a.log(SeverityDefault, fmt.Sprintln(args...))
+func (l *ContextLogger) Defaultln(args ...interface{}) {
+	l.log(SeverityDefault, fmt.Sprintln(args...))
 }
 
-func (a *AppLogger) Debug(args ...interface{}) {
-	a.log(SeverityDebug, fmt.Sprint(args...))
+func (l *ContextLogger) Debug(args ...interface{}) {
+	l.log(SeverityDebug, fmt.Sprint(args...))
 }
 
-func (a *AppLogger) Debugf(format string, args ...interface{}) {
-	a.log(SeverityDebug, fmt.Sprintf(format, args...))
+func (l *ContextLogger) Debugf(format string, args ...interface{}) {
+	l.log(SeverityDebug, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Debugln(args ...interface{}) {
-	a.log(SeverityDebug, fmt.Sprintln(args...))
+func (l *ContextLogger) Debugln(args ...interface{}) {
+	l.log(SeverityDebug, fmt.Sprintln(args...))
 }
 
-func (a *AppLogger) Info(args ...interface{}) {
-	a.log(SeverityInfo, fmt.Sprint(args...))
+func (l *ContextLogger) Info(args ...interface{}) {
+	l.log(SeverityInfo, fmt.Sprint(args...))
 }
 
-func (a *AppLogger) Infof(format string, args ...interface{}) {
-	a.log(SeverityInfo, fmt.Sprintf(format, args...))
+func (l *ContextLogger) Infof(format string, args ...interface{}) {
+	l.log(SeverityInfo, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Infoln(args ...interface{}) {
-	a.log(SeverityInfo, fmt.Sprintln(args...))
+func (l *ContextLogger) Infoln(args ...interface{}) {
+	l.log(SeverityInfo, fmt.Sprintln(args...))
 }
 
-func (a *AppLogger) Notice(args ...interface{}) {
-	a.log(SeverityNotice, fmt.Sprint(args...))
+func (l *ContextLogger) Notice(args ...interface{}) {
+	l.log(SeverityNotice, fmt.Sprint(args...))
 }
 
-func (a *AppLogger) Noticef(format string, args ...interface{}) {
-	a.log(SeverityNotice, fmt.Sprintf(format, args...))
+func (l *ContextLogger) Noticef(format string, args ...interface{}) {
+	l.log(SeverityNotice, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Noticeln(args ...interface{}) {
-	a.log(SeverityNotice, fmt.Sprintln(args...))
+func (l *ContextLogger) Noticeln(args ...interface{}) {
+	l.log(SeverityNotice, fmt.Sprintln(args...))
 }
 
-func (a *AppLogger) Warning(args ...interface{}) {
-	a.log(SeverityWarning, fmt.Sprint(args...))
+func (l *ContextLogger) Warning(args ...interface{}) {
+	l.log(SeverityWarning, fmt.Sprint(args...))
 }
 
-func (a *AppLogger) Warningf(format string, args ...interface{}) {
-	a.log(SeverityWarning, fmt.Sprintf(format, args...))
+func (l *ContextLogger) Warningf(format string, args ...interface{}) {
+	l.log(SeverityWarning, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Warningln(args ...interface{}) {
-	a.log(SeverityWarning, fmt.Sprintln(args...))
+func (l *ContextLogger) Warningln(args ...interface{}) {
+	l.log(SeverityWarning, fmt.Sprintln(args...))
 }
 
-func (a *AppLogger) Warn(args ...interface{}) {
-	a.Warning(args...)
+func (l *ContextLogger) Warn(args ...interface{}) {
+	l.Warning(args...)
 }
 
-func (a *AppLogger) Warnf(format string, args ...interface{}) {
-	a.Warningf(format, args...)
+func (l *ContextLogger) Warnf(format string, args ...interface{}) {
+	l.Warningf(format, args...)
 }
 
-func (a *AppLogger) Warnln(args ...interface{}) {
-	a.Warningln(args...)
+func (l *ContextLogger) Warnln(args ...interface{}) {
+	l.Warningln(args...)
 }
 
-func (a *AppLogger) Error(args ...interface{}) {
-	a.log(SeverityError, fmt.Sprint(args...))
+func (l *ContextLogger) Error(args ...interface{}) {
+	l.log(SeverityError, fmt.Sprint(args...))
 }
 
-func (a *AppLogger) Errorf(format string, args ...interface{}) {
-	a.log(SeverityError, fmt.Sprintf(format, args...))
+func (l *ContextLogger) Errorf(format string, args ...interface{}) {
+	l.log(SeverityError, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Errorln(args ...interface{}) {
-	a.log(SeverityError, fmt.Sprintln(args...))
+func (l *ContextLogger) Errorln(args ...interface{}) {
+	l.log(SeverityError, fmt.Sprintln(args...))
 }
 
-func (a *AppLogger) Critical(args ...interface{}) {
-	a.log(SeverityCritical, fmt.Sprint(args...))
+func (l *ContextLogger) Critical(args ...interface{}) {
+	l.log(SeverityCritical, fmt.Sprint(args...))
 }
 
-func (a *AppLogger) Criticalf(format string, args ...interface{}) {
-	a.log(SeverityCritical, fmt.Sprintf(format, args...))
+func (l *ContextLogger) Criticalf(format string, args ...interface{}) {
+	l.log(SeverityCritical, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Criticalln(args ...interface{}) {
-	a.log(SeverityCritical, fmt.Sprintln(args...))
+func (l *ContextLogger) Criticalln(args ...interface{}) {
+	l.log(SeverityCritical, fmt.Sprintln(args...))
 }
 
-func (a *AppLogger) Alert(args ...interface{}) {
-	a.log(SeverityAlert, fmt.Sprint(args...))
+func (l *ContextLogger) Alert(args ...interface{}) {
+	l.log(SeverityAlert, fmt.Sprint(args...))
 }
 
-func (a *AppLogger) Alertf(format string, args ...interface{}) {
-	a.log(SeverityAlert, fmt.Sprintf(format, args...))
+func (l *ContextLogger) Alertf(format string, args ...interface{}) {
+	l.log(SeverityAlert, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Alertln(args ...interface{}) {
-	a.log(SeverityAlert, fmt.Sprintln(args...))
+func (l *ContextLogger) Alertln(args ...interface{}) {
+	l.log(SeverityAlert, fmt.Sprintln(args...))
 }
 
-func (a *AppLogger) Emergency(args ...interface{}) {
-	a.log(SeverityEmergency, fmt.Sprint(args...))
+func (l *ContextLogger) Emergency(args ...interface{}) {
+	l.log(SeverityEmergency, fmt.Sprint(args...))
 }
 
-func (a *AppLogger) Emergencyf(format string, args ...interface{}) {
-	a.log(SeverityEmergency, fmt.Sprintf(format, args...))
+func (l *ContextLogger) Emergencyf(format string, args ...interface{}) {
+	l.log(SeverityEmergency, fmt.Sprintf(format, args...))
 }
 
-func (a *AppLogger) Emergencyln(args ...interface{}) {
-	a.log(SeverityEmergency, fmt.Sprintln(args...))
+func (l *ContextLogger) Emergencyln(args ...interface{}) {
+	l.log(SeverityEmergency, fmt.Sprintln(args...))
 }
 
-func (a *AppLogger) log(severity Severity, msg string) {
-	if severity < a.Severity {
+func (l *ContextLogger) log(severity Severity, msg string) {
+	if severity < l.Severity {
 		return
 	}
 
-	a.loggedSeverity = append(a.loggedSeverity, severity)
+	l.loggedSeverity = append(l.loggedSeverity, severity)
 
-	appLog := map[string]interface{}{
+	contextLog := map[string]interface{}{
 		"time": time.Now().Format(time.RFC3339Nano),
-		"logging.googleapis.com/trace": a.Trace,
+		"logging.googleapis.com/trace": l.Trace,
 		"severity":                     severity.String(),
 		"message":                      msg,
-		"logType":                      "app_log",
+		"logType":                      "context_log",
 	}
-	b, err := json.Marshal(appLog)
+	b, err := json.Marshal(contextLog)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
 
-	a.logger.Println(string(b))
+	l.logger.Println(string(b))
 }
 
-func (a *AppLogger) maxSeverity() Severity {
+func (l *ContextLogger) maxSeverity() Severity {
 	max := SeverityDefault
-	if len(a.loggedSeverity) == 0 {
-		return max
-	}
-
-	for _, s := range a.loggedSeverity {
+	for _, s := range l.loggedSeverity {
 		if s > max {
 			max = s
 		}
 	}
-
 	return max
 }

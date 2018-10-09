@@ -13,16 +13,16 @@ import (
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		appLogger := stackdriver.LoggerFromRequest(r)
-		appLogger.Debugf("This is a debug log")
-		appLogger.Infof("This is an info log")
-		appLogger.Warnf("This is a warning log")
-		appLogger.Errorf("This is an error log")
+		logger := stackdriver.RequestContextLogger(r)
+		logger.Debugf("This is a debug log")
+		logger.Infof("This is an info log")
+		logger.Warnf("This is a warning log")
+		logger.Errorf("This is an error log")
 		fmt.Fprintf(w, "OK\n")
 	})
 
 	projectId, _ := getDefaultProjectId()
-	logger := stackdriver.NewLogger(projectId,
+	config := stackdriver.NewConfig(projectId,
 		stackdriver.WithOut(os.Stderr, os.Stdout),
 		stackdriver.WithSeverity(stackdriver.SeverityInfo),
 		stackdriver.WithAdditionalFields(stackdriver.AdditionalFields{
@@ -30,7 +30,7 @@ func main() {
 			"version": 1.0,
 		}),
 	)
-	handler := stackdriver.Handler(logger, mux)
+	handler := stackdriver.Handler(config, mux)
 
 	if err := http.ListenAndServe(":8080", handler); err != nil {
 		panic(err)
