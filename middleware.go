@@ -2,8 +2,6 @@ package stackdriver
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -15,13 +13,20 @@ import (
 	"go.opencensus.io/trace"
 )
 
-// RequestLogging creates a middleware which logs a request log
+// RequestLogging creates the middleware which logs a request log and creates a request-context logger
 func RequestLogging(config *Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			before := time.Now()
 
 			traceId := getTraceId(r)
+			if traceId == "" {
+				// there is no span yet, so create one
+				var ctx context.Context
+				traceId, ctx = generateTraceId(r)
+				r = r.WithContext(ctx)
+			}
+
 			trace := fmt.Sprintf("projects/%s/traces/%s", config.ProjectId, traceId)
 
 			contextLogger := &ContextLogger{
@@ -56,16 +61,18 @@ func getTraceId(r *http.Request) string {
 		return span.SpanContext().TraceID.String()
 	}
 
-	// there is no span yet, so create one
-
 	httpFormat := &propagation.HTTPFormat{}
 	if sc, ok := httpFormat.SpanContextFromRequest(r); ok {
 		return sc.TraceID.String()
-	} else {
-		// TODO
-		uniqueBytes := sha256.Sum256([]byte(time.Now().Format(time.RFC3339Nano)))
-		return hex.EncodeToString(uniqueBytes[:16])
 	}
+
+	return ""
+}
+
+func generateTraceId(r *http.Request) (string, context.Context) {
+	ctx, span := trace.StartSpan(r.Context(), "")
+	sc := span.SpanContext()
+	return sc.TraceID.String(), ctx
 }
 
 type wrappedResponseWriter struct {

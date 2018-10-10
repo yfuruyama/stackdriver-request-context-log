@@ -1,5 +1,6 @@
-stackdriver-request-context-log [![CircleCI](https://circleci.com/gh/yfuruyama/stackdriver-request-context-log.svg?style=svg)](https://circleci.com/gh/yfuruyama/stackdriver-request-context-log)
+stackdriver-request-context-log
 ===
+[![CircleCI](https://circleci.com/gh/yfuruyama/stackdriver-request-context-log.svg?style=svg)](https://circleci.com/gh/yfuruyama/stackdriver-request-context-log)
 
 Stackdriver Logging Go library for grouping a request log and application logs.
 
@@ -33,8 +34,13 @@ import (
 
 func main() {
 	mux := http.NewServeMux()
+
+	// Set request handler
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		logger := log.RequestContextLogger(r) // thig logger's log is grouped with request log
+		// Get request context logger
+		logger := log.RequestContextLogger(r)
+
+		// These logs are grouped with the request log
 		logger.Debugf("Hi")
 		logger.Infof("Hello")
 		logger.Warnf("World")
@@ -43,19 +49,23 @@ func main() {
 	})
 
 	projectId := "my-gcp-project"
+
+	// Make config for this library
 	config := log.NewConfig(projectId)
-	config.RequestLogOut = os.Stderr                // set output for request log
-	config.ContextLogOut = os.Stdout                // set output for context log
-	config.Severity = log.SeverityInfo              // set severity
-	config.AdditionalFields = log.AdditionalFields{ // set additional fields for request logging
+	config.RequestLogOut = os.Stderr            // request log to stderr
+	config.ContextLogOut = os.Stdout            // context log to stdout
+	config.Severity = log.SeverityInfo          // only over INFO logs are logged
+	config.AdditionalData = log.AdditionalData{ // set additional fields for all logs
 		"service": "foo",
 		"version": 1.0,
 	}
 
+	// Set middleware for the request log to be automatically logged
 	handler := log.RequestLogging(config)(mux)
 
-	fmt.Println("Waiting requests on port 8010...")
-	if err := http.ListenAndServe(":8010", handler); err != nil {
+	// Run server
+	fmt.Println("Waiting requests on port 8080...")
+	if err := http.ListenAndServe(":8080", handler); err != nil {
 		panic(err)
 	}
 }
@@ -66,47 +76,65 @@ When this application receives a HTTP request `GET /`, following logs will be lo
 ```json
 // STDOUT
 {
-  "logging.googleapis.com/trace": "projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439",
-  "message": "Hello",
+  "time": "2018-10-10T16:46:07.476567+09:00",
+  "logging.googleapis.com/trace": "projects/my-gcp-project/traces/a8cb3e640add456cf7ed58e4a0589ea0",
+  "logging.googleapis.com/sourceLocation": {
+    "file": "main.go",
+    "line": "21",
+    "function": "main.main.func1"
+  },
   "severity": "INFO",
-  "time": "2018-10-09T18:21:43.629731+09:00"
+  "message": "Hello",
+  "data": {
+    "service": "foo",
+    "version": 1
+  }
 }
 {
-  "logging.googleapis.com/trace": "projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439",
-  "message": "World",
+  "time": "2018-10-10T16:46:07.476806+09:00",
+  "logging.googleapis.com/trace": "projects/my-gcp-project/traces/a8cb3e640add456cf7ed58e4a0589ea0",
+  "logging.googleapis.com/sourceLocation": {
+    "file": "main.go",
+    "line": "22",
+    "function": "main.main.func1"
+  },
   "severity": "WARNING",
-  "time": "2018-10-09T18:21:43.63184+09:00"
+  "message": "World",
+  "data": {
+    "service": "foo",
+    "version": 1
+  }
 }
 
 // STDERR
 {
-  "httpRequest": {
-    "cacheHit": false,
-    "cacheLookup": false,
-    "cacheValidatedWithOriginServer": false,
-    "latency": "0.007073s",
-    "protocol": "HTTP/1.1",
-    "referer": "",
-    "remoteIp": "[::1]:61502",
-    "requestMethod": "GET",
-    "requestSize": "0",
-    "requestUrl": "/",
-    "responseSize": "3",
-    "serverIp": "",
-    "status": 200,
-    "userAgent": "curl/7.58.0"
-  },
-  "logging.googleapis.com/trace": "projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439",
-  "service": "foo",
+  "time": "2018-10-10T16:46:07.47682+09:00",
+  "logging.googleapis.com/trace": "projects/my-gcp-project/traces/a8cb3e640add456cf7ed58e4a0589ea0",
   "severity": "WARNING",
-  "time": "2018-10-09T18:21:43.632127+09:00",
-  "version": 1
+  "httpRequest": {
+    "requestMethod": "GET",
+    "requestUrl": "/",
+    "requestSize": "0",
+    "status": 200,
+    "responseSize": "3",
+    "userAgent": "curl/7.58.0",
+    "remoteIp": "[::1]:61352",
+    "serverIp": "192.168.86.31",
+    "referer": "",
+    "latency": "0.000304s",
+    "cacheLookup": false,
+    "cacheHit": false,
+    "cacheValidatedWithOriginServer": false,
+    "protocol": "HTTP/1.1"
+  },
+  "data": {
+    "service": "foo",
+    "version": 1
+  }
 }
 ```
 
 The log format is based on [LogEntry](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry)'s structured payload so that you can pass these logs to [Stackdriver Logging agent](https://cloud.google.com/logging/docs/agent/).  
-
-Some of fields are treated specially at logging agent. See more details: https://cloud.google.com/logging/docs/agent/configuration?hl=en#special_fields_in_structured_payloads
 
 ## How logs are grouped
 

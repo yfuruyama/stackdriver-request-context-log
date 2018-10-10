@@ -13,11 +13,16 @@ import (
 
 type AdditionalData map[string]interface{}
 
-// Config has configuration for `RequestLogging` function.
+// Config is the configuration for `RequestLogging` middleware.
 type Config struct {
-	ProjectId      string
-	RequestLogOut  io.Writer
-	ContextLogOut  io.Writer
+	ProjectId string
+
+	// Output for request log
+	RequestLogOut io.Writer
+
+	// Output for context log (application log)
+	ContextLogOut io.Writer
+
 	Severity       Severity
 	AdditionalData AdditionalData
 }
@@ -80,7 +85,7 @@ type SourceLocation struct {
 	Function string `json:"function"`
 }
 
-type ContextLog struct {
+type contextLog struct {
 	Time           string         `json:"time"`
 	Trace          string         `json:"logging.googleapis.com/trace"`
 	SourceLocation SourceLocation `json:"logging.googleapis.com/sourceLocation"`
@@ -273,7 +278,7 @@ func (l *ContextLogger) write(severity Severity, msg string) error {
 		location.File = parts[len(parts)-1] // use short file name
 	}
 
-	contextLog := &ContextLog{
+	log := &contextLog{
 		Time:           time.Now().Format(time.RFC3339Nano),
 		Trace:          l.Trace,
 		SourceLocation: location,
@@ -282,13 +287,13 @@ func (l *ContextLogger) write(severity Severity, msg string) error {
 		AdditionalData: l.AdditionalData,
 	}
 
-	contextLogJson, err := json.Marshal(contextLog)
+	logJson, err := json.Marshal(log)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
-	contextLogJson = append(contextLogJson, '\n')
+	logJson = append(logJson, '\n')
 
-	_, err = l.out.Write(contextLogJson)
+	_, err = l.out.Write(logJson)
 	return err
 }
 

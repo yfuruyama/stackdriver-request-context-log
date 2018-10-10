@@ -95,11 +95,11 @@ func TestIntegration(t *testing.T) {
 		{"ERROR", "4"},
 	}
 	for idx, log := range logs {
-		var contextLog ContextLog
-		if err := json.Unmarshal([]byte(log), &contextLog); err != nil {
+		var cLog contextLog
+		if err := json.Unmarshal([]byte(log), &cLog); err != nil {
 			t.Fatal(err)
 		}
-		expected := ContextLog{
+		expected := contextLog{
 			Severity: logExpected[idx].Severity,
 			Message:  logExpected[idx].Message,
 			AdditionalData: AdditionalData{
@@ -108,15 +108,72 @@ func TestIntegration(t *testing.T) {
 			},
 		}
 		opts := []cmp.Option{
-			cmpopts.IgnoreFields(ContextLog{}, "Time", "Trace", "SourceLocation"),
+			cmpopts.IgnoreFields(contextLog{}, "Time", "Trace", "SourceLocation"),
 		}
-		if !cmp.Equal(contextLog, expected, opts...) {
-			t.Errorf("diff: %s", cmp.Diff(contextLog, expected, opts...))
+		if !cmp.Equal(cLog, expected, opts...) {
+			t.Errorf("diff: %s", cmp.Diff(cLog, expected, opts...))
 		}
 
 		// check trace
-		if httpRequestLog.Trace != contextLog.Trace {
-			t.Errorf("different trace: httpRequestLog=%s, contextLog=%s", httpRequestLog.Trace, contextLog.Trace)
+		if httpRequestLog.Trace != cLog.Trace {
+			t.Errorf("different trace: httpRequestLog=%s, contextLog=%s", httpRequestLog.Trace, cLog.Trace)
 		}
+	}
+}
+
+func TestNoContextLog(t *testing.T) {
+	r, _ := http.NewRequest("GET", "/foo?bar=baz", nil)
+	r.Header.Add("User-Agent", "test")
+	w := httptest.NewRecorder()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/foo", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "OK\n")
+	})
+
+	requestLogOut := new(bytes.Buffer)
+	contextLogOut := new(bytes.Buffer)
+
+	config := NewConfig("test")
+	config.RequestLogOut = requestLogOut
+	config.ContextLogOut = contextLogOut
+	handler := RequestLogging(config)(mux)
+	handler.ServeHTTP(w, r)
+
+	// check request log
+	var httpRequestLog HttpRequestLog
+	err := json.Unmarshal(requestLogOut.Bytes(), &httpRequestLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	opts := []cmp.Option{
+		cmpopts.IgnoreFields(HttpRequestLog{}, "Time", "Trace"),
+		cmpopts.IgnoreFields(HttpRequest{}, "RemoteIp", "ServerIp", "Latency"),
+	}
+	expected := HttpRequestLog{
+		Severity:       "DEFAULT",
+		AdditionalData: AdditionalData{},
+		HttpRequest: HttpRequest{
+			RequestMethod:                  "GET",
+			RequestUrl:                     "/foo?bar=baz",
+			RequestSize:                    "0",
+			Status:                         200,
+			ResponseSize:                   "3",
+			UserAgent:                      "test",
+			Referer:                        "",
+			CacheLookup:                    false,
+			CacheHit:                       false,
+			CacheValidatedWithOriginServer: false,
+			Protocol:                       "HTTP/1.1",
+		},
+	}
+
+	if !cmp.Equal(httpRequestLog, expected, opts...) {
+		t.Errorf("diff: %s", cmp.Diff(httpRequestLog, expected, opts...))
+	}
+
+	if len(contextLogOut.Bytes()) != 0 {
+		t.Errorf("context log exists: %s", string(contextLogOut.Bytes()))
 	}
 }
