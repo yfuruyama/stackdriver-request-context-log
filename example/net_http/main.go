@@ -11,7 +11,7 @@ import (
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		logger := log.RequestContextLogger(r) // thig logger's log is grouped with request log
+		logger := log.RequestContextLogger(r) // context logger's logs are grouped with request log
 		logger.Debugf("Hi")
 		logger.Infof("Hello")
 		logger.Warnf("World")
@@ -21,10 +21,10 @@ func main() {
 
 	projectId := "my-gcp-project"
 	config := log.NewConfig(projectId)
-	config.RequestLogOut = os.Stderr                // set output for request log
-	config.ContextLogOut = os.Stdout                // set output for context log
-	config.Severity = log.SeverityInfo              // set severity
-	config.AdditionalFields = log.AdditionalFields{ // set additional fields for request logging
+	config.RequestLogOut = os.Stderr                // request log to stderr
+	config.ContextLogOut = os.Stdout                // context log to stdout
+	config.Severity = log.SeverityInfo              // only over INFO logs are logged
+	config.AdditionalFields = log.AdditionalFields{ // set additional fields for all logs
 		"service": "foo",
 		"version": 1.0,
 	}

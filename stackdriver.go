@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -163,19 +165,19 @@ func (l *ContextLogger) Warningln(args ...interface{}) {
 	l.write(SeverityWarning, fmt.Sprintln(args...))
 }
 
-// Warn is alias for Warning
+// Warn logs a message at WARNING severity
 func (l *ContextLogger) Warn(args ...interface{}) {
-	l.Warning(args...)
+	l.write(SeverityWarning, fmt.Sprint(args...))
 }
 
-// Warnf is alias for Warningf
+// Warnf logs a message at WARNING severity
 func (l *ContextLogger) Warnf(format string, args ...interface{}) {
-	l.Warningf(format, args...)
+	l.write(SeverityWarning, fmt.Sprintf(format, args...))
 }
 
-// Warnln is alias for Warningln
+// Warnln logs a message at WARNING severity
 func (l *ContextLogger) Warnln(args ...interface{}) {
-	l.Warningln(args...)
+	l.write(SeverityWarning, fmt.Sprintln(args...))
 }
 
 // Error logs a message at ERROR severity
@@ -238,6 +240,12 @@ func (l *ContextLogger) Emergencyln(args ...interface{}) {
 	l.write(SeverityEmergency, fmt.Sprintln(args...))
 }
 
+type SourceLocation struct {
+	File     string `json:"file"`
+	Line     string `json:"line"`
+	Function string `json:"function"`
+}
+
 func (l *ContextLogger) write(severity Severity, msg string) error {
 	if severity < l.Severity {
 		return nil
@@ -245,11 +253,23 @@ func (l *ContextLogger) write(severity Severity, msg string) error {
 
 	l.loggedSeverity = append(l.loggedSeverity, severity)
 
+	// get source location
+	var location SourceLocation
+	if pc, file, line, ok := runtime.Caller(2); ok {
+		if function := runtime.FuncForPC(pc); function != nil {
+			location.Function = function.Name()
+		}
+		location.Line = fmt.Sprintf("%d", line)
+		parts := strings.Split(file, "/")
+		location.File = parts[len(parts)-1] // use short file name
+	}
+
 	contextLog := map[string]interface{}{
 		"time": time.Now().Format(time.RFC3339Nano),
-		"logging.googleapis.com/trace": l.Trace,
-		"severity":                     severity.String(),
-		"message":                      msg,
+		"logging.googleapis.com/trace":          l.Trace,
+		"logging.googleapis.com/sourceLocation": location,
+		"severity":                              severity.String(),
+		"message":                               msg,
 	}
 	for k, v := range l.AdditionalFields {
 		contextLog[k] = v
