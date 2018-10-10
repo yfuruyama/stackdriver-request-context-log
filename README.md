@@ -66,14 +66,12 @@ When this application receives a HTTP request `GET /`, following logs will be lo
 ```json
 // STDOUT
 {
-  "logType": "context_log",
   "logging.googleapis.com/trace": "projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439",
   "message": "Hello",
   "severity": "INFO",
   "time": "2018-10-09T18:21:43.629731+09:00"
 }
 {
-  "logType": "context_log",
   "logging.googleapis.com/trace": "projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439",
   "message": "World",
   "severity": "WARNING",
@@ -84,7 +82,7 @@ When this application receives a HTTP request `GET /`, following logs will be lo
 {
   "httpRequest": {
     "cacheHit": false,
-    "cacheLookUp": false,
+    "cacheLookup": false,
     "cacheValidatedWithOriginServer": false,
     "latency": "0.007073s",
     "protocol": "HTTP/1.1",
@@ -98,7 +96,6 @@ When this application receives a HTTP request `GET /`, following logs will be lo
     "status": 200,
     "userAgent": "curl/7.58.0"
   },
-  "logType": "request_log",
   "logging.googleapis.com/trace": "projects/my-gcp-project/traces/5e328d9926f7bb7bb15fdbafa5b08439",
   "service": "foo",
   "severity": "WARNING",

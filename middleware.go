@@ -25,10 +25,11 @@ func RequestLogging(config *Config) func(http.Handler) http.Handler {
 			trace := fmt.Sprintf("projects/%s/traces/%s", config.ProjectId, traceId)
 
 			contextLogger := &ContextLogger{
-				out:            config.ContextLogOut,
-				Trace:          trace,
-				Severity:       config.Severity,
-				loggedSeverity: make([]Severity, 0, 10),
+				out:              config.ContextLogOut,
+				Trace:            trace,
+				Severity:         config.Severity,
+				AdditionalFields: config.AdditionalFields,
+				loggedSeverity:   make([]Severity, 0, 10),
 			}
 			ctx := context.WithValue(r.Context(), contextLoggerKey, contextLogger)
 			r = r.WithContext(ctx)
@@ -103,12 +104,11 @@ func writeRequestLog(r *http.Request, config *Config, status int, responseSize i
 			"serverIp":                       getServerIp(),
 			"referer":                        r.Referer(),
 			"latency":                        fmt.Sprintf("%fs", elapsed.Seconds()),
-			"cacheLookUp":                    false,
+			"cacheLookup":                    false,
 			"cacheHit":                       false,
 			"cacheValidatedWithOriginServer": false,
 			"protocol":                       r.Proto,
 		},
-		"logType": "request_log",
 	}
 	for k, v := range config.AdditionalFields {
 		requestLog[k] = v

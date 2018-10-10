@@ -74,10 +74,11 @@ func (s Severity) String() string {
 
 // ContextLogger is the logger which is combined with the request
 type ContextLogger struct {
-	out            io.Writer
-	Trace          string
-	Severity       Severity
-	loggedSeverity []Severity
+	out              io.Writer
+	Trace            string
+	Severity         Severity
+	AdditionalFields AdditionalFields
+	loggedSeverity   []Severity
 }
 
 // RequestContextLogger gets request-context logger for the request.
@@ -249,7 +250,9 @@ func (l *ContextLogger) write(severity Severity, msg string) error {
 		"logging.googleapis.com/trace": l.Trace,
 		"severity":                     severity.String(),
 		"message":                      msg,
-		"logType":                      "context_log",
+	}
+	for k, v := range l.AdditionalFields {
+		contextLog[k] = v
 	}
 
 	contextLogJson, err := json.Marshal(contextLog)
