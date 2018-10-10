@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"go.opencensus.io/exporter/stackdriver/propagation"
@@ -132,7 +133,7 @@ func writeRequestLog(r *http.Request, config *Config, status int, responseSize i
 			Status:                         status,
 			ResponseSize:                   fmt.Sprintf("%d", responseSize),
 			UserAgent:                      r.UserAgent(),
-			RemoteIp:                       r.RemoteAddr,
+			RemoteIp:                       getRemoteIp(r),
 			ServerIp:                       getServerIp(),
 			Referer:                        r.Referer(),
 			Latency:                        fmt.Sprintf("%fs", elapsed.Seconds()),
@@ -151,6 +152,11 @@ func writeRequestLog(r *http.Request, config *Config, status int, responseSize i
 
 	_, err = config.RequestLogOut.Write(requestLogJson)
 	return err
+}
+
+func getRemoteIp(r *http.Request) string {
+	parts := strings.Split(r.RemoteAddr, ":")
+	return parts[0]
 }
 
 func getServerIp() string {

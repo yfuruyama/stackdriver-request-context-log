@@ -136,6 +136,43 @@ When this application receives a HTTP request `GET /`, following logs will be lo
 
 The log format is based on [LogEntry](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry)'s structured payload so that you can pass these logs to [Stackdriver Logging agent](https://cloud.google.com/logging/docs/agent/).  
 
+## Stackdriver Logging agent setting
+
+### GKE
+
+No settings required. All logs from `STDOUT` and `STDERR` are collected by default agents.
+
+### GCE
+
+For GCE, you have to install agents manually ([docs](https://cloud.google.com/logging/docs/agent/installation)).  
+Please install them and create config file like following,
+
+```
+# request log
+<source>
+    @type tail
+    format json
+    path /tmp/my_request_log
+    pos_file /var/lib/google-fluentd/pos/my-request-log.pos
+    read_from_head true
+    time_format %Y-%m-%dT%H:%M:%S.%N%Z
+    tag my-request-log
+</source>
+
+# app log
+<source>
+    @type tail
+    format json
+    path /tmp/my_app_log
+    pos_file /var/lib/google-fluentd/pos/my-app-log.pos
+    read_from_head true
+    time_format %Y-%m-%dT%H:%M:%S.%N%Z
+    tag my-app-log
+</source>
+```
+
+Don't forget to specify `time_format %Y-%m-%dT%H:%M:%S.%N%Z` to each `<source></source>` directive.
+
 ## How logs are grouped
 
 This library leverages the grouping feature of Stackdriver Logging.
