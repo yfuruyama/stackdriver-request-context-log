@@ -21,10 +21,10 @@ func main() {
 
 	projectId := "my-gcp-project"
 	config := log.NewConfig(projectId)
-	config.RequestLogOut = os.Stderr                // request log to stderr
-	config.ContextLogOut = os.Stdout                // context log to stdout
-	config.Severity = log.SeverityInfo              // only over INFO logs are logged
-	config.AdditionalFields = log.AdditionalFields{ // set additional fields for all logs
+	config.RequestLogOut = os.Stderr            // request log to stderr
+	config.ContextLogOut = os.Stdout            // context log to stdout
+	config.Severity = log.SeverityInfo          // only over INFO logs are logged
+	config.AdditionalData = log.AdditionalData{ // set additional fields for all logs
 		"service": "foo",
 		"version": 1.0,
 	}

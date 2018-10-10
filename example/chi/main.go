@@ -14,10 +14,10 @@ func main() {
 
 	projectId := "my-gcp-project"
 	config := log.NewConfig(projectId)
-	config.RequestLogOut = os.Stderr                // set output for request log
-	config.ContextLogOut = os.Stdout                // set output for context log
-	config.Severity = log.SeverityInfo              // set severity
-	config.AdditionalFields = log.AdditionalFields{ // set additional fields for request logging
+	config.RequestLogOut = os.Stderr            // set output for request log
+	config.ContextLogOut = os.Stdout            // set output for context log
+	config.Severity = log.SeverityInfo          // set severity
+	config.AdditionalData = log.AdditionalData{ // set additional fields for request logging
 		"service": "foo",
 		"version": 1.0,
 	}

@@ -25,11 +25,11 @@ func RequestLogging(config *Config) func(http.Handler) http.Handler {
 			trace := fmt.Sprintf("projects/%s/traces/%s", config.ProjectId, traceId)
 
 			contextLogger := &ContextLogger{
-				out:              config.ContextLogOut,
-				Trace:            trace,
-				Severity:         config.Severity,
-				AdditionalFields: config.AdditionalFields,
-				loggedSeverity:   make([]Severity, 0, 10),
+				out:            config.ContextLogOut,
+				Trace:          trace,
+				Severity:       config.Severity,
+				AdditionalData: config.AdditionalData,
+				loggedSeverity: make([]Severity, 0, 10),
 			}
 			ctx := context.WithValue(r.Context(), contextLoggerKey, contextLogger)
 			r = r.WithContext(ctx)
@@ -88,30 +88,53 @@ func (w *wrappedResponseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
+type HttpRequest struct {
+	RequestMethod                  string `json:"requestMethod"`
+	RequestUrl                     string `json:"requestUrl"`
+	RequestSize                    string `json:"requestSize"`
+	Status                         int    `json:"status"`
+	ResponseSize                   string `json:"responseSize"`
+	UserAgent                      string `json:"userAgent"`
+	RemoteIp                       string `json:"remoteIp"`
+	ServerIp                       string `json:"serverIp"`
+	Referer                        string `json:"referer"`
+	Latency                        string `json:"latency"`
+	CacheLookup                    bool   `json:"cacheLookup"`
+	CacheHit                       bool   `json:"cacheHit"`
+	CacheValidatedWithOriginServer bool   `json:"cacheValidatedWithOriginServer"`
+	Protocol                       string `json:"protocol"`
+}
+
+type HttpRequestLog struct {
+	Time           string         `json:"time"`
+	Trace          string         `json:"logging.googleapis.com/trace"`
+	Severity       string         `json:"severity"`
+	HttpRequest    HttpRequest    `json:"httpRequest"`
+	AdditionalData AdditionalData `json:"data"`
+}
+
 func writeRequestLog(r *http.Request, config *Config, status int, responseSize int, elapsed time.Duration, trace string, severity Severity) error {
-	requestLog := map[string]interface{}{
-		"time": time.Now().Format(time.RFC3339Nano),
-		"logging.googleapis.com/trace": trace,
-		"severity":                     severity.String(),
-		"httpRequest": map[string]interface{}{
-			"requestMethod":                  r.Method,
-			"requestUrl":                     r.URL.RequestURI(),
-			"requestSize":                    fmt.Sprintf("%d", r.ContentLength),
-			"status":                         status,
-			"responseSize":                   fmt.Sprintf("%d", responseSize),
-			"userAgent":                      r.UserAgent(),
-			"remoteIp":                       r.RemoteAddr,
-			"serverIp":                       getServerIp(),
-			"referer":                        r.Referer(),
-			"latency":                        fmt.Sprintf("%fs", elapsed.Seconds()),
-			"cacheLookup":                    false,
-			"cacheHit":                       false,
-			"cacheValidatedWithOriginServer": false,
-			"protocol":                       r.Proto,
+	requestLog := &HttpRequestLog{
+		Time:     time.Now().Format(time.RFC3339Nano),
+		Trace:    trace,
+		Severity: severity.String(),
+		HttpRequest: HttpRequest{
+			RequestMethod:                  r.Method,
+			RequestUrl:                     r.URL.RequestURI(),
+			RequestSize:                    fmt.Sprintf("%d", r.ContentLength),
+			Status:                         status,
+			ResponseSize:                   fmt.Sprintf("%d", responseSize),
+			UserAgent:                      r.UserAgent(),
+			RemoteIp:                       r.RemoteAddr,
+			ServerIp:                       getServerIp(),
+			Referer:                        r.Referer(),
+			Latency:                        fmt.Sprintf("%fs", elapsed.Seconds()),
+			CacheLookup:                    false,
+			CacheHit:                       false,
+			CacheValidatedWithOriginServer: false,
+			Protocol:                       r.Proto,
 		},
-	}
-	for k, v := range config.AdditionalFields {
-		requestLog[k] = v
+		AdditionalData: config.AdditionalData,
 	}
 	requestLogJson, err := json.Marshal(requestLog)
 	if err != nil {

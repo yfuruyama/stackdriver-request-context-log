@@ -1,4 +1,4 @@
-stackdriver-request-context-log
+stackdriver-request-context-log [![CircleCI](https://circleci.com/gh/yfuruyama/stackdriver-request-context-log.svg?style=svg)](https://circleci.com/gh/yfuruyama/stackdriver-request-context-log)
 ===
 
 Stackdriver Logging Go library for grouping a request log and application logs.

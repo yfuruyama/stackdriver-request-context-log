@@ -11,25 +11,25 @@ import (
 	"time"
 )
 
-type AdditionalFields map[string]interface{}
+type AdditionalData map[string]interface{}
 
 // Config has configuration for `RequestLogging` function.
 type Config struct {
-	ProjectId        string
-	RequestLogOut    io.Writer
-	ContextLogOut    io.Writer
-	Severity         Severity
-	AdditionalFields AdditionalFields
+	ProjectId      string
+	RequestLogOut  io.Writer
+	ContextLogOut  io.Writer
+	Severity       Severity
+	AdditionalData AdditionalData
 }
 
 // NewConfig creates a config with default settings.
 func NewConfig(projectId string) *Config {
 	return &Config{
-		ProjectId:        projectId,
-		Severity:         SeverityInfo,
-		RequestLogOut:    os.Stderr,
-		ContextLogOut:    os.Stdout,
-		AdditionalFields: AdditionalFields{},
+		ProjectId:      projectId,
+		Severity:       SeverityInfo,
+		RequestLogOut:  os.Stderr,
+		ContextLogOut:  os.Stdout,
+		AdditionalData: AdditionalData{},
 	}
 }
 
@@ -74,13 +74,28 @@ func (s Severity) String() string {
 	return "UNKNOWN"
 }
 
+type SourceLocation struct {
+	File     string `json:"file"`
+	Line     string `json:"line"`
+	Function string `json:"function"`
+}
+
+type ContextLog struct {
+	Time           string         `json:"time"`
+	Trace          string         `json:"logging.googleapis.com/trace"`
+	SourceLocation SourceLocation `json:"logging.googleapis.com/sourceLocation"`
+	Severity       string         `json:"severity"`
+	Message        string         `json:"message"`
+	AdditionalData AdditionalData `json:"data"`
+}
+
 // ContextLogger is the logger which is combined with the request
 type ContextLogger struct {
-	out              io.Writer
-	Trace            string
-	Severity         Severity
-	AdditionalFields AdditionalFields
-	loggedSeverity   []Severity
+	out            io.Writer
+	Trace          string
+	Severity       Severity
+	AdditionalData AdditionalData
+	loggedSeverity []Severity
 }
 
 // RequestContextLogger gets request-context logger for the request.
@@ -240,12 +255,6 @@ func (l *ContextLogger) Emergencyln(args ...interface{}) {
 	l.write(SeverityEmergency, fmt.Sprintln(args...))
 }
 
-type SourceLocation struct {
-	File     string `json:"file"`
-	Line     string `json:"line"`
-	Function string `json:"function"`
-}
-
 func (l *ContextLogger) write(severity Severity, msg string) error {
 	if severity < l.Severity {
 		return nil
@@ -264,15 +273,13 @@ func (l *ContextLogger) write(severity Severity, msg string) error {
 		location.File = parts[len(parts)-1] // use short file name
 	}
 
-	contextLog := map[string]interface{}{
-		"time": time.Now().Format(time.RFC3339Nano),
-		"logging.googleapis.com/trace":          l.Trace,
-		"logging.googleapis.com/sourceLocation": location,
-		"severity":                              severity.String(),
-		"message":                               msg,
-	}
-	for k, v := range l.AdditionalFields {
-		contextLog[k] = v
+	contextLog := &ContextLog{
+		Time:           time.Now().Format(time.RFC3339Nano),
+		Trace:          l.Trace,
+		SourceLocation: location,
+		Severity:       severity.String(),
+		Message:        msg,
+		AdditionalData: l.AdditionalData,
 	}
 
 	contextLogJson, err := json.Marshal(contextLog)
