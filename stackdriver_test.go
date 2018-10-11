@@ -153,7 +153,7 @@ func TestNoContextLog(t *testing.T) {
 	}
 	expected := HttpRequestLog{
 		Severity:       "DEFAULT",
-		AdditionalData: AdditionalData{},
+		AdditionalData: nil,
 		HttpRequest: HttpRequest{
 			RequestMethod:                  "GET",
 			RequestUrl:                     "/foo?bar=baz",

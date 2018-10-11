@@ -91,7 +91,7 @@ type contextLog struct {
 	SourceLocation SourceLocation `json:"logging.googleapis.com/sourceLocation"`
 	Severity       string         `json:"severity"`
 	Message        string         `json:"message"`
-	AdditionalData AdditionalData `json:"data"`
+	AdditionalData AdditionalData `json:"data,omitempty"`
 }
 
 // ContextLogger is the logger which is combined with the request

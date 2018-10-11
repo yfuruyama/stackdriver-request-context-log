@@ -118,7 +118,7 @@ type HttpRequestLog struct {
 	Trace          string         `json:"logging.googleapis.com/trace"`
 	Severity       string         `json:"severity"`
 	HttpRequest    HttpRequest    `json:"httpRequest"`
-	AdditionalData AdditionalData `json:"data"`
+	AdditionalData AdditionalData `json:"data,omitempty"`
 }
 
 func writeRequestLog(r *http.Request, config *Config, status int, responseSize int, elapsed time.Duration, trace string, severity Severity) error {
