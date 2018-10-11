@@ -4,7 +4,7 @@ stackdriver-request-context-log
 
 Stackdriver Logging Go library for grouping a request log and application logs.
 
-With this library, a request log is automatically logged and every application logs within the request are grouped together (similtar to App Engine).
+With this library all application logs in the request are grouped and displayed under the request log (like App Engine).
 
 <img alt="screenshot" src="https://github.com/yfuruyama/stackdriver-request-context-log/blob/master/img/screenshot.png">
 
