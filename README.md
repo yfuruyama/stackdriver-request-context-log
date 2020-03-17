@@ -180,3 +180,7 @@ See following references fore more details.
 
 * https://godoc.org/cloud.google.com/go/logging#hdr-Grouping_Logs_by_Request
 * https://cloud.google.com/appengine/articles/logging#linking_app_logs_and_requests
+
+## Disclaimer
+
+This is not an official Google product.
