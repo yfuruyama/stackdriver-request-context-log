@@ -1,4 +1,4 @@
-package stackdriver
+package stackdriverlog
 
 import (
 	"context"
